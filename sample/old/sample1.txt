@@ -1,0 +1,84 @@
+/**
+ * The MIT License
+ *
+ * Copyright 2022 Krishna sssky307@163.com
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * 
+ */
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//               CEC Code generation sample file.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                 (Api style B)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#pragma once
+
+{cec:keep:comment}
+struct {cec:enum:name}{
+    {cec:enum:keyValueList}
+
+    {cec:enum:type} value;  // Current value.
+    {cec:enum:name}({cec:enum:type} value_) : value(value_){}
+    {cec:enum:name}(const {cec:enum:name} & other){ 
+        if(this != &other){ this->value = other.value; }
+    }
+    operator {cec:enum:type} () const{ return this->value; }
+
+    // All Static public APIs.
+    struct _api{
+        static const {cec:enum:type} min = {cec:enum:min};
+        static const {cec:enum:type} max = {cec:enum:max};
+        static const {cec:enum:type} size = {cec:enum:size};
+
+        static const char* type(){ return "{cec:enum:type}";}
+        static const char* name(){ return "{cec:enum:name}";}
+        static const {cec:enum:type} ** keyTable(){
+            static const {cec:enum:type} * keys[{cec:enum:size}] = {
+                {cec:enum:keyList}
+            };
+            return keys;
+        }
+
+        static bool good(const {cec:enum:name} & obj){
+            if ({cec:enum:min} <= obj.value && obj.value <= {cec:enum:max}){
+                return true;
+            }
+            return false;
+        }
+
+        static bool strcmp(const char *s1, const char *s2, const {cec:enum:type} limit = 32){
+            if (s1 == nullptr || s2 == nullptr) return false;
+            {cec:enum:type} count = 0;
+            while (*s1 != '\0' && *s1 == *s2){
+                ++s1;
+                ++s2;
+                if (++count > limit){
+                    return false;
+                }
+            }
+            return (*s1 == *s2);
+        }
+
+        static const char *toString(const {cec:enum:name}& obj){
+            if (good(obj)){ 
+                return keyTable()[obj.value - min];
+            }
+            return "";
+        }
+
+        static {cec:enum:name} fromString(const char *s){
+            if(s != nullptr){
+                for ({cec:enum:type} i = 0; i < {cec:enum:size}; ++i){
+                    if (strcmp(s, keyTable()[i])){ 
+                        return {cec:enum:name}(i + min); 
+                    }
+                }
+            }
+            return {cec:enum:name}({cec:enum:size});
+        }
+    };
+};

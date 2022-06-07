@@ -1,0 +1,6 @@
+enum class Color:char
+{
+    Red = 0,
+    Green,
+    Blue
+};

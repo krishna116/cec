@@ -1,0 +1,446 @@
+/**
+ * The MIT License
+ *
+ * Copyright 2022 Krishna sssky307@163.com
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+#pragma once
+
+#include<vector>
+#include<string>
+
+namespace cec{
+namespace config{
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// App infomation.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    constexpr auto VersionMajor = "${PROJECT_VERSION_MAJOR}";
+    constexpr auto VersionMinor = "${PROJECT_VERSION_MINOR}";
+    constexpr auto VersionPatch = "${PROJECT_VERSION_PATCH}";
+    constexpr auto VersionStr   = "${PROJECT_NAME} version ${PROJECT_VERSION}";
+    constexpr auto AppName      = "${PROJECT_NAME}";
+    constexpr auto InputFileSizeMax = 1024*1024*2;   
+    constexpr auto EnumScalarTypeDefault = "int";
+    constexpr auto EnumKeyValueDataType = "static const";
+
+//
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//              Help infomation.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    constexpr auto HelpStr = 
+R"(${PROJECT_NAME} [options] <source>
+
+It will reflect source(enum definition file) to code.
+
+Options:
+  -o, --output <file>     specify output filename.
+  -e, --export <file>     export cec internal sample file. 
+  -i, --import <file>     import sample file for reflection.
+  -h, --help              show this help.
+  -v, --version           show version.
+
+Example:
+  ## Reflect Color.txt to Color.hpp
+  ${PROJECT_NAME} Color.txt --output Color.hpp
+
+  ## Reflect Color.txt to Color.hpp with custom sample file.
+  ${PROJECT_NAME} Color.txt -import sample.txt --output Color.hpp
+
+  ## Export ${PROJECT_NAME} internal sample file.
+  ${PROJECT_NAME} --export <file>
+)";
+
+//
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//    The internal sample file for code generation.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+constexpr auto CodeSample = R"(
+#pragma once
+
+{cec:keep:comment}
+struct {cec:enum:name}{
+    {cec:enum:keyValueList}
+
+    {cec:enum:type} value;  // Current value.
+    {cec:enum:name}({cec:enum:type} value_) : value(value_){}
+    {cec:enum:name}(const {cec:enum:name} & other){ 
+        if(this != &other){ this->value = other.value; }
+    }
+    operator {cec:enum:type} () const{ return this->value; }
+
+    // Public APIs.
+    static const {cec:enum:type} _min() { return {cec:enum:min}; }
+    static const {cec:enum:type} _max() { return {cec:enum:max}; }
+    static const {cec:enum:type} _size() { return {cec:enum:size}; }
+    static const char* _type(){ return "{cec:enum:type}";}
+    static const char* _name(){ return "{cec:enum:name}";}
+    static const {cec:enum:type} ** _keyTable(){
+        static const {cec:enum:type} * keys[{cec:enum:size}] = {
+            {cec:enum:keyList}
+        };
+        return keys;
+    }
+
+    static bool _good(const {cec:enum:name} & obj){
+        if ({cec:enum:min} <= obj.value && obj.value <= {cec:enum:max}){
+            return true;
+        }
+        return false;
+    }
+
+    static bool _strcmp(const char *s1, const char *s2, const {cec:enum:type} limit = 32){
+        if (s1 == nullptr || s2 == nullptr) return false;
+        {cec:enum:type} count = 0;
+        while (*s1 != '\0' && *s1 == *s2){
+            ++s1;
+            ++s2;
+            if (++count > limit){ return false; }
+        }
+        return (*s1 == *s2);
+    }
+
+    static const char *_toString(const {cec:enum:name}& obj){
+        if (_good(obj)){ 
+            return _keyTable()[obj.value - _min()];
+        }
+        return "";
+    }
+
+    static {cec:enum:name} _fromString(const char *s){
+        if(s != nullptr){
+            for ({cec:enum:type} i = 0; i < {cec:enum:size}; ++i){
+                if (_strcmp(s, _keyTable()[i])){ 
+                    return {cec:enum:name}(i + _min()); 
+                }
+            }
+        }
+        return {cec:enum:name}({cec:enum:size});
+    }
+};
+)"; // CodeSample end.
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//    Enum value type and range limitation.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+struct TypeAndRange
+{
+    std::string type;
+    int64_t min;
+    int64_t max;
+
+    static const std::vector<TypeAndRange>& get()
+    {
+        static const std::vector<TypeAndRange> typeAndRangeArray =
+        {
+            {"bool", CHAR_MIN, CHAR_MAX},
+            {"char", CHAR_MIN, CHAR_MAX},
+            {"int8_t", CHAR_MIN, CHAR_MAX},
+
+            {"uint8_t", 0, UCHAR_MAX},
+            {"char8_t", 0, UCHAR_MAX},      //since C++20
+
+            {"short", SHRT_MIN, SHRT_MAX},
+            {"int16_t", SHRT_MIN, SHRT_MAX},
+
+            {"uint16_t", 0, USHRT_MAX},
+            {"char16_t", 0, USHRT_MAX},
+
+            {"int", INT_MIN, INT_MAX},
+            {"signed", INT_MIN, INT_MAX},
+            {"int32_t", INT_MIN, INT_MAX},
+
+            {"uint32_t", 0, UINT32_MAX},
+            {"unsigned", 0, UINT32_MAX},
+            {"char32_t", 0, UINT32_MAX},
+
+            {"long", LONG_MIN, LONG_MAX},
+
+            {"int64_t", INT64_MIN, INT64_MAX}
+        };
+        return typeAndRangeArray;
+    }
+};
+
+//
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// These are some C and C++ reserved keywords.
+//   - It should not be used as enum class name.
+//   - Some of them cannot be used as enum scalar type.
+//
+// Reference.
+//   - https://en.cppreference.com/w/c/keyword
+//   - https://en.cppreference.com/w/cpp/keyword
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+struct KeywordForbidden
+{
+    static const std::vector<std::string>& getForEnumName()
+    {
+        static const std::vector<std::string> enumNameForbidden=
+        {
+            "_Alignas",
+            "_Alignof",
+            "_Atomic",
+            "_Bool",
+            "_Complex",
+            "_Decimal128",
+            "_Decimal32",
+            "_Decimal64",
+            "_Generic",
+            "_Imaginary",
+            "_Noreturn",
+            "_Pragma",
+            "_Static_assert",
+            "_Thread_local",
+            "__has_c_attribute",
+            "__has_cpp_attribute",
+            "__has_include",
+            "alignas",
+            "alignof",
+            "and",
+            "and_eq",
+            "asm",
+            "atomic_cancel",
+            "atomic_commit",
+            "atomic_noexcept",
+            "auto",
+            "bitand",
+            "bitor",
+            "bool",
+            "break",
+            "case",
+            "catch",
+            "char",
+            "char16_t",
+            "char32_t",
+            "char8_t",
+            "class",
+            "co_await",
+            "co_return",
+            "co_yield",
+            "compl",
+            "complex",
+            "concept",
+            "const",
+            "const_cast",
+            "consteval",
+            "constexpr",
+            "constinit",
+            "continue",
+            "decltype",
+            "default",
+            "define",
+            "defined",
+            "delete",
+            "do",
+            "double",
+            "dynamic_cast",
+            "elif",
+            "else",
+            "endif",
+            "enum",
+            "error",
+            "explicit",
+            "export",
+            "extern",
+            "false",
+            "final",
+            "float",
+            "for",
+            "fortran",
+            "friend",
+            "goto",
+            "if",
+            "ifdef",
+            "ifndef",
+            "imaginary",
+            "import",
+            "include",
+            "inline",
+            "int",
+            "line",
+            "long",
+            "module",
+            "mutable",
+            "namespace",
+            "new",
+            "noexcept",
+            "noreturn",
+            "not",
+            "not_eq",
+            "nullptr",
+            "operator",
+            "or",
+            "or_eq",
+            "override",
+            "pragma",
+            "private",
+            "protected",
+            "public",
+            "reflexpr",
+            "register",
+            "reinterpret_cast",
+            "requires",
+            "restrict",
+            "return",
+            "short",
+            "signed",
+            "sizeof",
+            "static",
+            "static_assert",
+            "static_cast",
+            "struct",
+            "switch",
+            "synchronized",
+            "template",
+            "this",
+            "thread_local",
+            "throw",
+            "transaction_safe",
+            "transaction_safe_dynamic",
+            "true",
+            "try",
+            "typedef",
+            "typeid",
+            "typename",
+            "undef",
+            "union",
+            "unsigned",
+            "using",
+            "virtual",
+            "void",
+            "volatile",
+            "wchar_t",
+            "while",
+            "xor",
+            "xor_eq",
+            "__cplusplus"
+        };
+        return enumNameForbidden;
+    };// end getForEnumName()
+
+    static const std::vector<std::string>& getForEnumType()
+    {
+        static const std::vector<std::string> enumTypeForbidden=
+        {
+            "_Pragma",
+            "__has_cpp_attribute",
+            "__has_include",
+            "alignas",
+            "alignof",
+            "and",
+            "and_eq",
+            "asm",
+            "atomic_cancel",
+            "atomic_commit",
+            "atomic_noexcept",
+            "auto",
+            "bitand",
+            "bitor",
+            "break",
+            "case",
+            "catch",
+            "class",
+            "co_await",
+            "co_return",
+            "co_yield",
+            "compl",
+            "complex",
+            "concept",
+            "const",
+            "const_cast",
+            "consteval",
+            "constexpr",
+            "constinit",
+            "continue",
+            "decltype",
+            "default",
+            "define",
+            "defined",
+            "delete",
+            "do",
+            "double",
+            "dynamic_cast",
+            "elif",
+            "else",
+            "endif",
+            "enum",
+            "error",
+            "explicit",
+            "export",
+            "extern",
+            "false",
+            "final",
+            "float",
+            "for",
+            "fortran",
+            "friend",
+            "goto",
+            "if",
+            "ifdef",
+            "ifndef",
+            "imaginary",
+            "import",
+            "include",
+            "inline",
+            "line",
+            "module",
+            "mutable",
+            "namespace",
+            "new",
+            "noexcept",
+            "noreturn",
+            "not",
+            "not_eq",
+            "nullptr",
+            "operator",
+            "or",
+            "or_eq",
+            "override",
+            "pragma",
+            "private",
+            "protected",
+            "public",
+            "reflexpr",
+            "register",
+            "reinterpret_cast",
+            "requires",
+            "restrict",
+            "return",
+            "sizeof",
+            "static",
+            "static_assert",
+            "static_cast",
+            "struct",
+            "switch",
+            "synchronized",
+            "template",
+            "this",
+            "thread_local",
+            "throw",
+            "transaction_safe",
+            "transaction_safe_dynamic",
+            "true",
+            "try",
+            "typedef",
+            "typeid",
+            "typename",
+            "undef",
+            "union",
+            "using",
+            "virtual",
+            "volatile",
+            "while",
+            "xor",
+            "xor_eq",
+            "__cplusplus"
+        };
+        return enumTypeForbidden;
+    } // end getForEnumType()
+
+}; // struct KeywordForbidden
+
+} // namespace config
+} // namespace cec

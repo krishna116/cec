@@ -1,0 +1,225 @@
+/**
+ * The MIT License
+ *
+ * Copyright 2022 Krishna sssky307@163.com
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * 
+ */
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                 CEC unit test sample.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                 (Used For Api style B)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// unit-test-target: {cec:enum:name}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#include "{cec:enum:name}.hpp" // Test target file.
+
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <set>
+
+// A test helper
+struct TestHelper
+{
+    int error_count = 0;
+    int total_count = 0;
+    void operator()(bool value, int line, const {cec:enum:type} *file)
+    {
+        ++total_count;
+        if (value == false)
+        {
+            ++error_count;
+            std::cout << "[fail]:";
+            std::cout << " fail-line = " << line;
+            std::cout << " file = " << file;
+            std::cout << "\n";
+        }
+        else
+        {
+            std::cout << "[pass]:";
+            std::cout << " pass-line = " << line;
+            std::cout << " file = " << file;
+            std::cout << "\n";
+        }
+    }
+    int report()
+    {
+        std::cout << "[test-report]-----------------------------------\n";
+        std::cout << "\t[total] = " << total_count;
+        std::cout << ", [pass] = " << total_count - error_count;
+        std::cout << ", [fail] = " << error_count;
+        std::cout << "\n";
+        return error_count;
+    }
+};
+TestHelper testHelper;
+#define assert_true(x) testHelper((x), __LINE__, __FILE__);
+
+//
+// --------------------------------------------------------------------------
+//
+
+void test_enum_scalar_type()
+{
+    assert_true(sizeof({cec:enum:type}) == sizeof({cec:enum:name}));
+    assert_true(sizeof({cec:enum:type}) == sizeof({cec:enum:name}::_api::min));
+    assert_true(sizeof({cec:enum:type}) == sizeof({cec:enum:name}::_api::max));
+    
+    {cec:enum:name} instance = {cec:enum:name}::{cec:enum:firstKey};
+    assert_true(sizeof({cec:enum:type}) == sizeof(instance.value));
+    assert_true(sizeof({cec:enum:type}) == sizeof(instance));
+
+    assert_true({cec:enum:name}::_api::min <= {cec:enum:name}::_api::max);
+    auto size = {cec:enum:name}::_api::max - {cec:enum:name}::_api::min + 1;
+    assert_true({cec:enum:name}::_api::size == size);
+
+    assert_true(std::string("{cec:enum:name}") == {cec:enum:name}::_api::name());
+    assert_true(std::string("{cec:enum:type}") == {cec:enum:name}::_api::type());
+}
+
+void test_enum_class_value()
+{
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::min);
+        assert_true({cec:enum:name}::_api::good(instance));
+    }
+
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::max);
+        assert_true({cec:enum:name}::_api::good(instance));
+    }
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::max + 1);
+        assert_true({cec:enum:name}::_api::good(instance) == false);
+    }
+}
+
+void test_iterate_enum_value()
+{
+    for (auto ev = {cec:enum:name}::_api::min; ev <= {cec:enum:name}::_api::max; ++ev)
+    {
+        auto instance = {cec:enum:name}(ev);
+        assert_true({cec:enum:name}::_api::good(instance));
+    }
+}
+
+void test_iterate_keyTable()
+{
+    std::set<std::string> tokenSet;
+    for (auto i = 0; i < {cec:enum:name}::_api::size; i++)
+    {
+        std::string str({cec:enum:name}::_api::keyTable()[i]);
+        tokenSet.insert(str);
+        assert_true(!str.empty());
+    }
+    assert_true(tokenSet.size() == {cec:enum:name}::_api::size);
+}
+
+void test_switch_case()
+{
+    // The first key may be the last key, so we should split test.
+    {
+        {cec:enum:name} instance = {cec:enum:name}::_api::min;
+        switch (instance)
+        {
+        case {cec:enum:name}::{cec:enum:firstKey}:
+        {
+            assert_true(1);
+            break;
+        }
+        default:
+        {
+            assert_true(0);
+        }
+        }
+    }
+
+    {
+        {cec:enum:name} instance = {cec:enum:name}::_api::max;
+        switch (instance)
+        {
+        case {cec:enum:name}::{cec:enum:lastKey}:
+        {
+            assert_true(1);
+            break;
+        }
+        default:
+        {
+            assert_true(0);
+        }
+        }
+    }
+}
+
+void test_enum_to_string()
+{
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::min);
+        auto str1 = std::string({cec:enum:name}::_api::toString(instance));
+        auto str2 = std::string({cec:enum:name}::_api::keyTable()[0]);
+        assert_true(!str1.empty() && str1 == str2);
+    }
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::max);
+        auto str1 = std::string({cec:enum:name}::_api::toString(instance));
+        auto str2 = std::string({cec:enum:name}::_api::keyTable()[{cec:enum:name}::_api::size - 1]);
+        assert_true(!str1.empty() && str1 == str2);
+    }
+    {
+        auto instance = {cec:enum:name}({cec:enum:name}::_api::max + 1);
+        assert_true({cec:enum:name}::_api::good(instance) == false);
+        auto str1 = std::string({cec:enum:name}::_api::toString(instance));
+        assert_true(str1.empty());
+    }
+}
+
+void test_enum_from_string()
+{
+    {
+        auto str = std::string({cec:enum:name}::_api::keyTable()[0]);
+        auto instance = {cec:enum:name}::_api::fromString(str.c_str());
+        assert_true({cec:enum:name}::_api::good(instance));
+    }
+    {
+        auto str = std::string({cec:enum:name}::_api::keyTable()[{cec:enum:name}::_api::size - 1]);
+        auto instance = {cec:enum:name}::_api::fromString(str.c_str());
+        assert_true({cec:enum:name}::_api::good(instance));
+    }
+    {
+        auto str = std::string("a bad string");
+        auto instance = {cec:enum:name}::_api::fromString(str.c_str());
+        assert_true({cec:enum:name}::_api::good(instance) == false);
+    }
+    {
+        auto instance = {cec:enum:name}::_api::fromString(nullptr);
+        assert_true({cec:enum:name}::_api::good(instance) == false);
+    }
+    {
+        auto instance = {cec:enum:name}::_api::fromString("");
+        assert_true({cec:enum:name}::_api::good(instance) == false);
+    }
+}
+
+int unit_test_{cec:enum:name}()
+{
+    test_enum_scalar_type();
+    test_enum_class_value();
+    test_iterate_enum_value();
+    test_iterate_keyTable();
+    test_switch_case();
+    test_enum_to_string();
+    test_enum_from_string();
+
+    return testHelper.report();
+}
+
+int main()
+{
+    return unit_test_{cec:enum:name}();
+}
